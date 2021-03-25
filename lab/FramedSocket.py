@@ -4,40 +4,33 @@ class FramedSocket:
     def __init__(self, socket):
 
         self.socket = socket
-
-        
-    #packetMaker creates the packet with the size and message
-    def packetMaker(message):
-
-        messageLength = len(message)
-        packet = bytes((str(packetMaker) + ":" + message), "utf-8") #turn it into bytes
-        return packet
-
     
-    #framedSend takes a packet and sends it
-    def framedSend(self, message):
+    #framedSend takes a line from a file and creates a packet
+    #with the size of the message and the actual message
+    #seperated with a ':' and sends out the packet.
+    def framedSend(self, fileLine):
         
-        packet = packetMaker(message)
+        packetContent = fileLine.decode()
+        packetSize = len(fileLine)
+        packet = bytes((str(packetSize) + ":" + packetContent), 'utf-8') #create packet
         self.socket.send(packet)
 
         
-    #readMessage checks to make sure the message is correct
-    def readMessage(message):
+    #framedReceive receives a packet and breaks the packet up from the
+    #message size and actual message, it checks to make sure the message
+    #size is equal to size of actual message, informs the sender if the
+    #packet arrived okay or not, and finally returns message.
+    def framedReceive(self):
 
-        message1 = message.decode()
+        receivedContent = self.socket.recv(1024)
+        receivedContent = receivedContent.decode().split(":")
 
-        try:
-            message1 = message1.split(":")
-            
-            if(message1[0].isdigit() == True):
-                message1[0] = int(message1[0]) #turn it into an int
+        if(receivedContent[0].isdigit() == True): #convert str to int
+            receivedContent[0] = int(receivedContent[0])
 
-                if(message1[0] != len(message1[1])): #makes sure length matches
-                    return None
+            if(receivedContent[0] == len(receivedContent[1])): #checks if the lengths match
+                self.socket.send(bytes("Okay", 'utf-8')) #sends sender ACK
+                return receivedContent[1] #return message
 
-            return message1
-                
-        except: #something is wrong in the message
-            return None
-
-    
+            if(receivedContent[0] != len(receivedContent[1])): #if the packet messed up
+                self.socket.send(bytes("No", 'utf-8')) #lets sender know packet is bad
