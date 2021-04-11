@@ -38,18 +38,21 @@ while True:
     framedSocket = FramedSocket(conn)
     
     if os.fork() == 0:      # child becomes server
-        print('Connected by', addr)
-        fileName = input()
 
-        transferFile = open(fileName, 'rb')
-        fileList = transferFile.readlines()
+        fileName = conn.recv(1024).decode() #gets fileName from client
+        isFile =  os.path.isfile("serverFiles/" + fileName)
 
-        conn.send(bytes(str(len(fileList)), 'utf-8')) #send the number of lines in file
+        if(isFile == False): #file doesn't exist
+            conn.send(bytes("no", 'utf-8')) #sends no if the file doesn't exist 
+            
 
-        for i in range(len(fileList)):
-            framedSocket.framedSend(fileList[i])
-
-            if(conn.recv(1024).decode() == "No"): #if client doesn't receive a packet
-                frameSocket.framedSend(fileList[i]) #resend it
+        if(isFile == True): #file does exist
+            conn.send(bytes("yes", 'utf-8')) #sends yes if the file exists
+            conn.shutdown(socket.SHUT_WR)
 
 
+        fileContent = framedSocket.framedReceive() #receive the contents from the file
+        fd = os.open("serverFiles/" + fileName, os.O_CREAT | os.O_WRONLY) #create the file
+        os.write(fd, fileContent.encode())
+        os.close(fd)
+        
