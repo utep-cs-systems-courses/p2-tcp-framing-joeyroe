@@ -5,6 +5,7 @@
 import socket, sys, re, time
 sys.path.append("../lib")       # for params
 import params
+import os
 from FramedSocket import *
 
 switchesVarDefaults = (
@@ -60,23 +61,49 @@ if delay != 0:
     print("done sleeping")
 
 
-frameSocket = FramedSocket(s)
 
-numOfLines = s.recv(1024).decode()
 
-newFile = open("newFile.txt", 'w')
 
-if(numOfLines.isdigit() == True):
-    numOfLines = int(numOfLines)
+#client first sends the name of the file, the server checks to see if 
+#the file already exists in the directory with replying with a yes if it
+#does and no if it doesn't. If the file doesn't exist the client sends the
+#file contents to the server using a framed socket.
 
-receivedList = [None] * numOfLines #creates a list size of numOfLines
 
-for i in range(numOfLines):
+fileName = input() 
+framedSocket = FramedSocket(s)
 
-    receivedList[i] = frameSocket.framedReceive()
-    newFile.write(receivedList[i])
-    print(receivedList[i])
-    print()
+s.send(bytes(fileName, 'utf-8')) #just sends the name of the file to the server
+fileExists = s.recv(1024).decode() #server response to if file already exists or not
 
-print(receivedList)
-newFile.close()
+fd = os.open(fileName, os.O_RDONLY)
+
+if(fileExists == 'no'):
+
+    fd = os.open(fileName, os.O_RDONLY)
+    #a = os.read(fd, 200)
+    #framedSocket.framedSend(a)
+    
+    fileContents = ""
+        
+    while(True):
+
+        contentRead = os.read(fd, 200) #read 200 bytes at a time from fd
+
+        print(contentRead)
+
+        if(len(contentRead) == 0): #finished reading the file breaks from the while loop
+            break
+
+        fileContents += contentRead.decode() #groups content of the file together
+
+    framedSocket.framedSend(bytes(fileContents, 'utf-8')) #sends file contents
+    s.close()
+    print("sent file ", fileName, " to the server")
+
+if(fileExists == 'yes'): #server already has file with that name
+
+    print("file already exists")
+    sys.exit(1)
+
+
